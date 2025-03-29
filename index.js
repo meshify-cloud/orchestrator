@@ -19,9 +19,6 @@ const secureLinkSecret = process.env.SECURE_LINK_SECRET;
 const allowReferrers = getArrayFromEnv('ALLOW_REFERERS');
 
 const originOnly = edgeServers.length === 0;
-if (!origin) {
-    throw new Error('origin is required');
-}
 if (edgeMonitors.length > 0 && edgeServers.length !== edgeMonitors.length) {
     throw new Error('EDGE_MONITORS length should be equal to EDGE_SERVERS length');
 }
@@ -34,10 +31,11 @@ const allowCountrySet = new Set(allowCountries);
 const edges = edgeServers.map((url, index) => {
     let weight = 1;
     if (edgeWeights.length > 0) {
-        weight = edgeWeights[index];
+        weight = Number(edgeWeights[index]);
     }
     return { url, weight, name: `edge${index}` }
 })
+
 const loadBalancer = new WeightedLoadBalancer(edges);
 
 const app = App()
@@ -71,7 +69,6 @@ const app = App()
         const host = originOnly ? origin : loadBalancer.getNextUrl();
         setCorsHeaders(res, allowOrigin);
         res.writeHeader('Content-Type', 'application/vnd.apple.mpegurl');
-        // console.warn(server)
         const content = `#EXTM3U
 #EXT-X-VERSION:3
 #EXT-X-STREAM-INF:BANDWIDTH=2000000
