@@ -2,7 +2,7 @@ import createLogger from "./logger.js";
 import { App } from "uWebSockets.js";
 import {setCorsHeaders, WeightedLoadBalancer, getArrayFromEnv, verifyAuth, getRealIp} from "./utils.js";
 import 'dotenv/config';
-import { lookup, available } from "./geoip.js";
+import { lookup, available as geoAvailable } from "./geoip.js";
 
 const logLevel = process.env.LOG_LEVEL;
 const logFile = !!process.env.LOG_FILE;
@@ -37,6 +37,9 @@ const edges = edgeServers.map((url, index) => {
 })
 
 const loadBalancer = new WeightedLoadBalancer(edges);
+if (geoAvailable) {
+    logger.warn('geolite2 country db is available');
+}
 
 const app = App()
     .get('/*.m3u8', (res, req) => {
@@ -56,7 +59,7 @@ const app = App()
             res.writeStatus('403 Forbidden').end();
             return;
         }
-        if (countryLimited && available) {
+        if (countryLimited && geoAvailable) {
             const result = lookup.get(clientIp);
             // console.warn(result)
             // console.warn(clientIp)

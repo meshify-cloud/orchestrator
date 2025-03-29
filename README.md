@@ -16,3 +16,4 @@ This server can make sub-playlist redirect to do load balance among edge servers
 | ALLOW_COUNTRIES | The array of Country ISO code that allowed to access | No       | []  |
 | ALLOW_REFERERS | The array of referrer that allowed to access | No   | []   |
 | SECURE_LINK_SECRET | the secure link secret | No |  ''  |
+| COUNTRY_DB | The path to geolite2 country mmdb | No |  ''  |

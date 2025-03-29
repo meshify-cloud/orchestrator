@@ -3,8 +3,9 @@ import * as fs from "fs";
 
 let lookup;
 let available = false;
-if (fs.existsSync('./GeoLite2-Country.mmdb')) {
-    const buffer = fs.readFileSync('./GeoLite2-Country.mmdb');
+const geolite2CountryDB = process.env.COUNTRY_DB;
+if (geolite2CountryDB && fs.existsSync(geolite2CountryDB)) {
+    const buffer = fs.readFileSync(geolite2CountryDB);
     lookup = new Reader(buffer);
     available = true;
 }
