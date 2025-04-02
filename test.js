@@ -1,26 +1,43 @@
 import crypto from 'crypto';
+import Dispatcher from './dispatcher.js';
+import 'dotenv/config';
+import {getContinentCountryCode, getCountryCode } from "./geoip.js";
 
 /**
- * 生成 Nginx secure_link 访问令牌
- * @param {string} uri - 请求的URI路径 (例如 "/protected/file.txt")
- * @param {string} clientIp - 客户端IP (必须与Nginx收到的$remote_addr一致)
- * @param {number} expires - 过期时间戳 (秒级, 例如当前时间 + 3600)
- * @param {string} secret - 密钥 (需与Nginx配置中的"666666"一致)
- * @returns {string} 返回完整URL (包含md5和expires参数)
+ * @param {string} uri - The request URI("/protected/file.txt")
+ * @param {string} clientIp - Client IP
+ * @param {number} expires - Expire timestamp (seconds)
+ * @param {string} secret - Secret key
  */
 function generateSecureLink(uri, clientIp, expires, secret = "666666") {
     // 计算MD5哈希 (格式: secret + clientIp + expires + uri)
     const hashInput = `${secret}${clientIp}${expires}${uri}`;
     const binaryHash = crypto.createHash('md5').update(hashInput).digest();
     var base64Value = (new Buffer.from(binaryHash).toString('base64')).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-    // 返回带参数的URL
     return `${uri}?md5=${base64Value}&expires=${expires}`;
 }
 
-// 示例使用
+// Example
 const uri = "/live/sintel/index.m3u8";
-const clientIp = "168.138.161.76"; // 必须与Nginx收到的$remote_addr一致
-const expires = Math.floor(Date.now() / 1000) + 3600; // 1小时后过期
+const clientIp = "168.138.161.76"; // The client public ip
+const expires = Math.floor(Date.now() / 1000) + 3600; // Expire in one hour
 
 const url = generateSecureLink(uri, clientIp, expires);
-console.log("生成的Secure Link:", url);
+console.log("Secure Link:", url);
+
+const edge1 = { id: 0, url: 'http://meshifysg-monitorone-yb5ptd-7d381a-43-160-207-98.traefik.me' };
+const edge2 = { id: 1, url: 'http://meshifysg-monitortwo-3gp1nq-4545eb-43-165-2-47.traefik.me' };
+const edge3 = { id: 2, url: 'http://meshifysg-monitorthree-syshqs-24c86f-43-165-2-47.traefik.me' };
+
+const dispatch = new Dispatcher([edge1, edge2, edge3], {
+
+})
+
+// dispatch.fetchServerStatus();
+// setInterval(() => {
+//     console.warn(dispatch.selectServer())
+// }, 8000)
+
+console.warn(getCountryCode('168.138.161.76'));
+console.warn(getContinentCountryCode('168.138.161.76'));
+

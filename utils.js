@@ -32,12 +32,12 @@ export function getRealIp(req, res) {
 
 export class WeightedLoadBalancer {
     constructor(servers) {
-        // servers 格式: [{name: 'server1', weight: 5, url}, {name: 'server2', weight: 3, url}]
+        // servers 格式: [{id: 0, weight: 5, url}, {id: 1, weight: 3, url}]
         this.servers = servers;
         this.totalWeight = servers.reduce((sum, server) => sum + server.weight, 0);
         // 初始化当前权重
         this.currentWeights = servers.map(server => ({
-            name: server.name,
+            id: server.id,
             url: server.url,
             weight: server.weight,
             currentWeight: 0
@@ -74,7 +74,7 @@ export class WeightedLoadBalancer {
         this.servers.push(server);
         this.totalWeight += server.weight;
         this.currentWeights.push({
-            name: server.name,
+            id: server.id,
             url: server.url,
             weight: server.weight,
             currentWeight: 0
@@ -83,7 +83,7 @@ export class WeightedLoadBalancer {
 
     // 移除服务器
     removeServer(serverName) {
-        const index = this.currentWeights.findIndex(s => s.name === serverName);
+        const index = this.currentWeights.findIndex(s => s.id === serverName);
         if (index !== -1) {
             this.totalWeight -= this.currentWeights[index].weight;
             this.currentWeights.splice(index, 1);

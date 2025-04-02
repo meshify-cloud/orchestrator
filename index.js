@@ -2,7 +2,9 @@ import createLogger from "./logger.js";
 import { App } from "uWebSockets.js";
 import {setCorsHeaders, WeightedLoadBalancer, getArrayFromEnv, verifyAuth, getRealIp} from "./utils.js";
 import 'dotenv/config';
-import { lookup, available as geoAvailable } from "./geoip.js";
+import { getCountryCode, available as geoAvailable } from "./geoip.js";
+import { Dispatcher, GeoLookup } from "./dispatcher.js";
+import { getPlayerCode } from './players/index.js'
 
 const logLevel = process.env.LOG_LEVEL;
 const logFile = !!process.env.LOG_FILE;
@@ -17,8 +19,12 @@ const allowOrigin = process.env.ALLOW_ORIGIN;
 const allowCountries = getArrayFromEnv('ALLOW_COUNTRIES');
 const secureLinkSecret = process.env.SECURE_LINK_SECRET;
 const allowReferrers = getArrayFromEnv('ALLOW_REFERERS');
+const monitorUpdateInterval = process.env.MONITOR_UPDATE_INTERVAL || 15000;
+const p2pTrackerZone = process.env.P2P_TRACKER_ZONE;
+const p2pToken = process.env.P2P_TOKEN;
 
 const originOnly = edgeServers.length === 0;
+const hasMonitors = edgeMonitors.length > 0;
 if (edgeMonitors.length > 0 && edgeServers.length !== edgeMonitors.length) {
     throw new Error('EDGE_MONITORS length should be equal to EDGE_SERVERS length');
 }
@@ -33,10 +39,15 @@ const edges = edgeServers.map((url, index) => {
     if (edgeWeights.length > 0) {
         weight = Number(edgeWeights[index]);
     }
-    return { url, weight, name: `edge${index}` }
+    const monitorHost = edgeMonitors.length > 0 ? edgeMonitors[index] : undefined;
+    return { url, weight, id: index, monitorHost }
 })
 
-const loadBalancer = new WeightedLoadBalancer(edges);
+const loadBalancer = originOnly ? null : new WeightedLoadBalancer(edges);
+const dispatcher = hasMonitors ? new Dispatcher(edges, {
+    updateInterval: monitorUpdateInterval,
+    geoLookup: geoAvailable ? new GeoLookup() : undefined,
+}) : null;
 if (geoAvailable) {
     logger.warn('geolite2 country db is available');
 }
@@ -60,16 +71,25 @@ const app = App()
             return;
         }
         if (countryLimited && geoAvailable) {
-            const result = lookup.get(clientIp);
+            const code = getCountryCode(clientIp);
             // console.warn(result)
             // console.warn(clientIp)
-            const code = result?.country?.iso_code
             if (!code || !allowCountrySet.has(code)) {
                 res.writeStatus('403 Forbidden').end();
                 return;
             }
         }
-        const host = originOnly ? origin : loadBalancer.getNextUrl();
+        let host;
+        if (!originOnly) {
+            if (hasMonitors) {
+                host = dispatcher.selectServer();
+            }
+            if (!host) {
+                host = loadBalancer.getNextUrl();
+            }
+        } else {
+            host = origin;
+        }
         setCorsHeaders(res, allowOrigin);
         res.writeHeader('Content-Type', 'application/vnd.apple.mpegurl');
         const content = `#EXTM3U
@@ -78,7 +98,7 @@ const app = App()
 ${host}${uri}${query ? `?${query}` : ''}
 `
         res.end(content);
-});
+}).get('/:player/:link', getPlayerCode(p2pTrackerZone, p2pToken));
 
 app.listen(port, (token) => {
     if (token) {
